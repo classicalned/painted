@@ -49,8 +49,8 @@ const pre = document.getElementById('pre');
 
 const ASSETS = {
   bg: "assets/bg/house_plate.jpg",
-  pos: ["assets/subject/pos1.png","pos2.png","pos3.png","pos4.png","pos5.png"].map(p=>"assets/subject/"+p)
-  // final chosen at runtime: assets/finals/{CARD}.png
+  pos: ["pos1.png","pos2.png","pos3.png","pos4.png","pos5.png"]
+       .map(p => `assets/subject/${p}`)
 };
 
 let state = { step:0, card:"AH" };
