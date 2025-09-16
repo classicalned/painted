@@ -20,26 +20,25 @@
   <div id="pre">Loading…</div>
 </div>
 
-<!-- Firebase (v9 compat) -->
+<!-- Firebase (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
-/*** 1) EDIT THESE: your Firebase project + a simple room ID ***/
+// ✅ Your Firebase config
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_APP.firebaseapp.com",
-  databaseURL: "https://YOUR_APP-default-rtdb.firebaseio.com",
-  projectId: "YOUR_APP",
-  storageBucket: "YOUR_APP.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:XXXXXXXX"
+  apiKey: "AIzaSyA-qhu_bH-GSKrWwAeUUmuxh5EbSrGgOrE",
+  authDomain: "haunted-painting.firebaseapp.com",
+  databaseURL: "https://haunted-painting-default-rtdb.firebaseio.com",
+  projectId: "haunted-painting",
+  storageBucket: "haunted-painting.firebasestorage.app",
+  messagingSenderId: "543448897329",
+  appId: "1:543448897329:web:548f8e73300484977ec210",
+  measurementId: "G-4WTEQ9TRYD"
 };
-const ROOM_ID = "house01"; // change per routine if needed
-/*** END EDITS ***/
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const ref = db.ref("rooms/"+ROOM_ID);
+const ref = db.ref("rooms/house01");
 
 const stage = document.getElementById('stage');
 const bg = document.getElementById('bg');
@@ -49,8 +48,8 @@ const pre = document.getElementById('pre');
 
 const ASSETS = {
   bg: "assets/bg/house_plate.jpg",
-  pos: ["pos1.png","pos2.png","pos3.png","pos4.png","pos5.png"]
-       .map(p => `assets/subject/${p}`)
+  pos: ["pos1.png","pos2.png","pos3.png","pos4.png","pos5.png"].map(p=>"assets/subject/"+p)
+  // finals are loaded at runtime: assets/finals/{CARD}.png
 };
 
 let state = { step:0, card:"AH" };
@@ -64,10 +63,10 @@ async function init(){
   const toLoad = [ASSETS.bg, ...ASSETS.pos];
   await Promise.all(toLoad.map(preload));
   bg.style.backgroundImage = `url(${ASSETS.bg})`;
-  bg.classList.add('show'); // background always visible
+  bg.classList.add('show');
   pre.remove();
 
-  // subscribe to realtime state
+  // subscribe to realtime updates
   ref.on('value', snap=>{
     const v = snap.val(); if(!v) return;
     const nextStep = Number(v.step||0);
@@ -81,17 +80,15 @@ function render(step, card){
   if(step===currentStep) return;
   currentStep = step;
 
-  // clear layers
+  // clear
   pos.classList.remove('show');
   fin.classList.remove('show');
 
-  if(step<=4){
+  if(step <= 4){
     pos.style.backgroundImage = `url(${ASSETS.pos[step]})`;
-    // tiny timeout ensures CSS transition
     requestAnimationFrame(()=>pos.classList.add('show'));
   } else {
-    const finalSrc = `assets/finals/${card}.png`; // pre-rendered final
-    // Preload once per card
+    const finalSrc = `assets/finals/${card}.png`;
     if(!loaded.has(finalSrc)){ preload(finalSrc).then(()=>loaded.add(finalSrc)); }
     fin.style.backgroundImage = `url(${finalSrc})`;
     requestAnimationFrame(()=>fin.classList.add('show'));
