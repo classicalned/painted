@@ -7,15 +7,20 @@
 <style>
   html,body{margin:0;height:100%;background:#111;}
   #stage{position:relative; width:100vw; height:100vh; overflow:hidden; background:#111;}
-  .layer{position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; transition:opacity 1500ms ease;}
+  .layer{
+    position:absolute; inset:0;
+    background-size:cover; background-position:center;
+    opacity:0; transition:opacity 1500ms ease;
+  }
   .show{opacity:1;}
   #pre{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font:16px system-ui}
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="bg" class="layer"></div>
-  <div id="pos" class="layer"></div>
+  <div id="bg"   class="layer"></div>
+  <div id="posA" class="layer"></div><!-- alt layer A -->
+  <div id="posB" class="layer"></div><!-- alt layer B -->
   <div id="final" class="layer"></div>
   <div id="pre">Loading…</div>
 </div>
@@ -37,27 +42,25 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db  = firebase.database();
 const ref = db.ref("rooms/house01");
 
-const stage = document.getElementById('stage');
-const bg = document.getElementById('bg');
-const pos = document.getElementById('pos');
-const fin = document.getElementById('final');
-const pre = document.getElementById('pre');
+// DOM
+const bg   = document.getElementById('bg');
+const posA = document.getElementById('posA');
+const posB = document.getElementById('posB');
+const fin  = document.getElementById('final');
+const pre  = document.getElementById('pre');
 
+// Assets
 const ASSETS = {
   bg: "assets/bg/house_plate.jpg",
   pos: ["pos1.png","pos2.png","pos3.png","pos4.png","pos5.png","pos6.png"].map(p=>"assets/subject/"+p)
-  // finals are loaded at runtime: assets/finals/{CARD}.png
+  // finals loaded at runtime: assets/finals/{CARD}.png
 };
 
-let state = { step:0, card:"AH" };
 let loaded = new Set();
-
-function preload(src){ return new Promise(res=>{
-  const i = new Image(); i.onload=()=>res(src); i.onerror=()=>res(src); i.src=src;
-});}
+function preload(src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res(src); i.onerror=()=>res(src); i.src=src; }); }
 
 async function init(){
   const toLoad = [ASSETS.bg, ...ASSETS.pos];
@@ -66,32 +69,56 @@ async function init(){
   bg.classList.add('show');
   pre.remove();
 
-  // subscribe to realtime updates
   ref.on('value', snap=>{
     const v = snap.val(); if(!v) return;
-    const nextStep = Number(v.step||0);
-    const nextCard = (v.card||"AH").toUpperCase();
-    render(nextStep, nextCard);
+    render(Number(v.step||0), (v.card||"AH").toUpperCase());
   });
 }
 
+// crossfade state
 let currentStep = -1;
+let active = 'A'; // which pos layer is currently showing ('A' or 'B')
+
+// helper: swap visibility between two layers with a crossfade
+function crossfade(nextLayer, nextImage, prevLayer){
+  // keep previous visible during the fade
+  if(prevLayer) prevLayer.classList.add('show');
+
+  // set next image and fade it in
+  nextLayer.style.backgroundImage = `url(${nextImage})`;
+  requestAnimationFrame(()=>{
+    nextLayer.classList.add('show');
+    const done = ()=> {
+      if(prevLayer) prevLayer.classList.remove('show'); // hide the old one after fade
+      nextLayer.removeEventListener('transitionend', done);
+    };
+    nextLayer.addEventListener('transitionend', done);
+  });
+}
+
 function render(step, card){
-  if(step===currentStep) return;
+  if(step === currentStep) return;
   currentStep = step;
 
-  // clear
-  pos.classList.remove('show');
+  // always hide final unless we're on final frame
   fin.classList.remove('show');
 
   if(step <= 5){
-    pos.style.backgroundImage = `url(${ASSETS.pos[step]})`;
-    requestAnimationFrame(()=>pos.classList.add('show'));
+    // choose which pos layer is incoming/outgoing
+    const incoming = (active === 'A') ? posB : posA;
+    const outgoing = (active === 'A') ? posA : posB;
+
+    crossfade(incoming, ASSETS.pos[step], outgoing);
+
+    // flip active for next step
+    active = (active === 'A') ? 'B' : 'A';
+
   } else {
+    // final card crossfades over whichever pos layer is currently visible
     const finalSrc = `assets/finals/${card}.png`;
     if(!loaded.has(finalSrc)){ preload(finalSrc).then(()=>loaded.add(finalSrc)); }
     fin.style.backgroundImage = `url(${finalSrc})`;
-    requestAnimationFrame(()=>fin.classList.add('show'));
+    requestAnimationFrame(()=> fin.classList.add('show'));
   }
 }
 
