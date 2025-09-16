@@ -48,7 +48,7 @@ const pre = document.getElementById('pre');
 
 const ASSETS = {
   bg: "assets/bg/house_plate.jpg",
-  pos: ["pos1.png","pos2.png","pos3.png","pos4.png","pos5.png","pos6.png","pos7.png"].map(p=>"assets/subject/"+p)
+  pos: ["pos1.png","pos2.png","pos3.png","pos4.png","pos5.png","pos6.png"].map(p=>"assets/subject/"+p)
   // finals are loaded at runtime: assets/finals/{CARD}.png
 };
 
@@ -84,7 +84,7 @@ function render(step, card){
   pos.classList.remove('show');
   fin.classList.remove('show');
 
-  if(step <= 6){
+  if(step <= 5){
     pos.style.backgroundImage = `url(${ASSETS.pos[step]})`;
     requestAnimationFrame(()=>pos.classList.add('show'));
   } else {
