@@ -5,80 +5,74 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Haunted Painting – Control</title>
 
-<!-- App install -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f0f0f">
 
 <style>
   :root{
     --bg:#0f0f0f; --fg:#ddd; --muted:#9aa0a6;
-    --btn:#2b2b2b; --field:#1a1a1a; --border:#333;
-    --accent:#3a7afe;
+    --btn:#2b2b2b; --field:#1a1a1a; --border:#333; --accent:#3a7afe;
   }
   html,body{margin:0;background:var(--bg);color:var(--fg)}
   body{
     font:20px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     display:flex; flex-direction:column; gap:18px; padding:20px; max-width:720px; margin:auto;
   }
-  .stack{display:flex; flex-direction:column; gap:14px}
 
-  /* BIG touch targets */
-  button, select{
+  /* BIG buttons */
+  button{
     font-size:22px; line-height:1.2;
     padding:16px 20px;
     min-height:60px; min-width:60px;
-    border-radius:14px;
+    border-radius:14px; border:0;
+    background:var(--btn); color:#fff;
   }
-  button{ background:var(--btn); color:#fff; border:0; }
-  select{ background:var(--field); color:#fff; border:1px solid var(--border); }
-
-  /* Specific buttons */
   .reset{ background:#3b3b3b }
-  .primary{ background:var(--accent); }
-  .secondary{ background:#444; }
+  .primary{ background:var(--accent) }
+  .secondary{ background:#444 }
+
+  .label{ font-weight:700; font-size:18px; color:#cfcfcf }
+
+  /* Grids */
+  .grid{ display:grid; gap:12px }
+  .ranks{ grid-template-columns: repeat(4, 1fr); }   /* 13 items -> 4-4-4-1 */
+  .suits{ grid-template-columns: repeat(4, 1fr); }
+
+  /* Toggle styling + selected state */
+  .toggle{ background:var(--field); border:1px solid var(--border); }
+  .toggle.active{
+    background:#2155ff; border-color:#2155ff;
+    box-shadow: 0 0 0 3px rgba(33,85,255,0.25) inset;
+  }
 
   /* Sizes */
-  .w-full{ width:100% }
-  .w-large{ width:100%; padding-block:30px; font-size:40px }  /* big NEXT */
+  .w-large{ width:100%; padding-block:18px; font-size:24px }  /* big NEXT */
   .w-med{ width:70% }                                         /* smaller BACK */
 
-  /* Labels */
-  .label{ font-weight:600; font-size:18px; color:#cfcfcf }
+  /* Current selection pill */
+  .current{
+    align-self:flex-start;
+    padding:8px 12px; border-radius:999px;
+    background:#1b1b1b; border:1px solid var(--border);
+    font-weight:700; font-size:18px; color:#eaeaea;
+  }
 </style>
 </head>
 <body>
 
 <!-- RESET on top -->
-<button class="reset w-full" onclick="reset()">⟲ Reset</button>
+<button class="reset" style="width:100%" onclick="reset()">⟲ Reset</button>
 
-<!-- Card selects -->
-<div class="stack">
-  <div class="label">Card</div>
-  <select id="rank" aria-label="Rank">
-    <option value="A">A</option>
-    <option value="2">2</option>
-    <option value="3">3</option>
-    <option value="4">4</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-    <option value="7">7</option>
-    <option value="8">8</option>
-    <option value="9">9</option>
-    <option value="10">10</option>
-    <option value="J">J</option>
-    <option value="Q">Q</option>
-    <option value="K">K</option>
-  </select>
+<!-- Current chosen card -->
+<div id="current" class="current">Card: A♥</div>
 
-  <select id="suit" aria-label="Suit">
-    <option value="H">♥ Hearts</option>
-    <option value="D">♦ Diamonds</option>
-    <option value="C">♣ Clubs</option>
-    <option value="S">♠ Spades</option>
-  </select>
+<!-- Rank buttons -->
+<div class="label">Rank</div>
+<div class="grid ranks" id="rankGrid"></div>
 
-  <button class="w-full" onclick="applyCard()">Set Card</button>
-</div>
+<!-- Suit buttons -->
+<div class="label">Suit</div>
+<div class="grid suits" id="suitGrid"></div>
 
 <!-- Big NEXT, smaller BACK -->
 <button class="primary w-large" onclick="advance()">Next ➜</button>
@@ -88,7 +82,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
-// Firebase config (same as before)
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyA-qhu_bH-GSKrWwAeUUmuxh5EbSrGgOrE",
   authDomain: "haunted-painting.firebaseapp.com",
@@ -99,46 +93,87 @@ const firebaseConfig = {
   appId: "1:543448897329:web:548f8e73300484977ec210",
   measurementId: "G-4WTEQ9TRYD"
 };
-
 firebase.initializeApp(firebaseConfig);
 
-// Fixed room (stripped the selector)
+// Fixed room
 const ROOM_ID = "house01";
 let ref = firebase.database().ref("rooms/"+ROOM_ID);
 
 // state
 let step = 0;
-let card = "AH"; // default
+let selectedRank = "A";
+let selectedSuit = "H";
+let card = "AH"; // derived from selections
 
-const rankSel = document.getElementById('rank');
-const suitSel = document.getElementById('suit');
+const currentEl = document.getElementById('current');
 
-// defaults: AH
-rankSel.value = "A";
-suitSel.value = "H";
+// helpers
+function updateCurrent(){
+  const suitGlyph = {H:"♥", D:"♦", C:"♣", S:"♠"}[selectedSuit];
+  currentEl.textContent = `Card: ${selectedRank}${suitGlyph}`;
+}
+function applyCard(){
+  card = selectedRank + selectedSuit; // e.g., "5S"
+  ref.set({step, card});
+}
 
-// actions
+// build rank buttons
+const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+const rankGrid = document.getElementById('rankGrid');
+ranks.forEach(r=>{
+  const b = document.createElement('button');
+  b.textContent = r;
+  b.className = "toggle";
+  b.onclick = ()=>{
+    selectedRank = r;
+    [...rankGrid.children].forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    updateCurrent();
+    applyCard(); // auto-apply
+  };
+  if(r==="A") b.classList.add('active');
+  rankGrid.appendChild(b);
+});
+
+// build suit buttons
+const suits = [
+  {v:"H", label:"♥ Hearts"},
+  {v:"D", label:"♦ Diamonds"},
+  {v:"C", label:"♣ Clubs"},
+  {v:"S", label:"♠ Spades"},
+];
+const suitGrid = document.getElementById('suitGrid');
+suits.forEach(s=>{
+  const b = document.createElement('button');
+  b.textContent = s.label;
+  b.className = "toggle";
+  b.onclick = ()=>{
+    selectedSuit = s.v;
+    [...suitGrid.children].forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    updateCurrent();
+    applyCard(); // auto-apply
+  };
+  if(s.v==="H") b.classList.add('active');
+  suitGrid.appendChild(b);
+});
+
+// navigation
 function sync(){ ref.set({step, card}); }
 function advance(){ step = Math.min(6, step+1); sync(); }
 function back(){ step = Math.max(0, step-1); sync(); }
 function reset(){ step = 0; sync(); }
 
-function applyCard(){
-  const r = rankSel.value.toUpperCase();
-  const s = suitSel.value.toUpperCase(); // H/D/C/S
-  card = r + s;
-  sync();
-}
-
-// Keyboard shortcuts (Space/Right/Left/R)
+// keyboard shortcuts
 window.addEventListener('keydown', (e)=>{
   if(e.code==="Space"||e.key==="ArrowRight"){ advance(); }
   else if(e.key==="ArrowLeft"){ back(); }
   else if(e.key==="r"||e.key==="R"){ reset(); }
 });
 
-// initialize
-sync();
+// init
+updateCurrent();
+applyCard(); // push initial "AH"
 </script>
 </body>
 </html>
