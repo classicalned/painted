@@ -10,6 +10,7 @@
   button{padding:12px 16px;border:0;border-radius:12px;background:#2b2b2b;color:#fff;font-size:16px}
   select,input{padding:10px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#fff}
   .small{font-size:13px;color:#888}
+  .pill{padding:6px 10px;border-radius:999px;background:#1b1b1b;border:1px solid #333}
 </style>
 </head>
 <body>
@@ -18,11 +19,35 @@
   <input id="room" value="house01" />
   <button onclick="setRoom()">Use</button>
 </div>
+
 <div class="row">
-  <label>Card</label>
-  <select id="card"></select>
+  <span class="pill">Card</span>
+  <select id="rank">
+    <option value="A">A</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10</option>
+    <option value="J">J</option>
+    <option value="Q">Q</option>
+    <option value="K">K</option>
+  </select>
+
+  <select id="suit">
+    <option value="H">♥ Hearts</option>
+    <option value="D">♦ Diamonds</option>
+    <option value="C">♣ Clubs</option>
+    <option value="S">♠ Spades</option>
+  </select>
+
   <button onclick="applyCard()">Set Card</button>
 </div>
+
 <div class="row">
   <button onclick="advance()">Next ➜</button>
   <button onclick="back()">◀ Back</button>
@@ -48,28 +73,23 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
-const CARD_LIST = (()=>{ // 52-card list like "AH","2H",...,"KS"
-  const ranks=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-  const suits=["H","D","C","S"];
-  const out=[]; for(const s of suits){ for(const r of ranks){ out.push(r+s); } }
-  return out;
-})();
-
-const cardSel = document.getElementById('card');
-CARD_LIST.forEach(c=>{
-  const o=document.createElement('option'); o.value=c; o.textContent=c; cardSel.appendChild(o);
-});
-cardSel.value="AH";
-
+// ---- control state ----
 let ROOM_ID = "house01";
 let ref = firebase.database().ref("rooms/"+ROOM_ID);
 let step = 0;
-let card = "AH";
+let card = "AH"; // default
+
+const rankSel = document.getElementById('rank');
+const suitSel = document.getElementById('suit');
+
+// defaults: AH
+rankSel.value = "A";
+suitSel.value = "H";
 
 function setRoom(){
   ROOM_ID = document.getElementById('room').value.trim() || "house01";
   ref = firebase.database().ref("rooms/"+ROOM_ID);
-  // push current local state to make sure display gets something
+  // push current local state so display has something
   ref.set({step, card});
 }
 
@@ -77,7 +97,13 @@ function sync(){ ref.set({step, card}); }
 function advance(){ step = Math.min(5, step+1); sync(); }
 function back(){ step = Math.max(0, step-1); sync(); }
 function reset(){ step = 0; sync(); }
-function applyCard(){ card = cardSel.value.toUpperCase(); sync(); }
+
+function applyCard(){
+  const r = rankSel.value.toUpperCase();
+  const s = suitSel.value.toUpperCase(); // H/D/C/S
+  card = r + s;
+  sync();
+}
 
 // Keyboard shortcuts (Space/Right/Left/R)
 window.addEventListener('keydown', (e)=>{
