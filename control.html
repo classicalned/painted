@@ -100,7 +100,7 @@ function setRoom(){
 }
 
 function sync(){ ref.set({step, card}); }
-function advance(){ step = Math.min(7, step+1); sync(); }
+function advance(){ step = Math.min(6, step+1); sync(); }
 function back(){ step = Math.max(0, step-1); sync(); }
 function reset(){ step = 0; sync(); }
 
