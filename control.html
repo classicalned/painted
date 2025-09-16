@@ -59,7 +59,7 @@
   <button onclick="back()">◀ Back</button>
   <button onclick="reset()">⟲ Reset</button>
 </div>
-<div class="small">Steps: 0..4 = positions, 5 = final card frame.</div>
+<div class="small">Steps: 0..5 = positions, 6 = final card frame.</div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -100,7 +100,7 @@ function setRoom(){
 }
 
 function sync(){ ref.set({step, card}); }
-function advance(){ step = Math.min(5, step+1); sync(); }
+function advance(){ step = Math.min(6, step+1); sync(); }
 function back(){ step = Math.max(0, step-1); sync(); }
 function reset(){ step = 0; sync(); }
 
