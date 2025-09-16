@@ -34,17 +34,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
-/*** EDIT: same Firebase config as display.html ***/
+// ✅ Your Firebase config
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_APP.firebaseapp.com",
-  databaseURL: "https://YOUR_APP-default-rtdb.firebaseio.com",
-  projectId: "YOUR_APP",
-  storageBucket: "YOUR_APP.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:XXXXXXXX"
+  apiKey: "AIzaSyA-qhu_bH-GSKrWwAeUUmuxh5EbSrGgOrE",
+  authDomain: "haunted-painting.firebaseapp.com",
+  databaseURL: "https://haunted-painting-default-rtdb.firebaseio.com",
+  projectId: "haunted-painting",
+  storageBucket: "haunted-painting.firebasestorage.app",
+  messagingSenderId: "543448897329",
+  appId: "1:543448897329:web:548f8e73300484977ec210",
+  measurementId: "G-4WTEQ9TRYD"
 };
-/*** END EDITS ***/
+
 firebase.initializeApp(firebaseConfig);
 
 const CARD_LIST = (()=>{ // 52-card list like "AH","2H",...,"KS"
