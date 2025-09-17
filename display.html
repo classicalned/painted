@@ -10,7 +10,7 @@
   .layer{
     position:absolute; inset:0;
     background-size:cover; background-position:center;
-    opacity:0; transition:opacity 2000ms ease;
+    opacity:0; transition:opacity 2000ms ease; /* keep in sync with FADE_MS */
   }
   .show{opacity:1;}
   #pre{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font:16px system-ui}
@@ -59,6 +59,8 @@ const ASSETS = {
   // finals loaded at runtime: assets/finals/{CARD}.png
 };
 
+const FADE_MS = 2000; // must match CSS transition above
+
 let loaded = new Set();
 function preload(src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res(src); i.onerror=()=>res(src); i.src=src; }); }
 
@@ -77,48 +79,70 @@ async function init(){
 
 // crossfade state
 let currentStep = -1;
-let active = 'A'; // which pos layer is currently showing ('A' or 'B')
+let active = 'A';                 // which pos layer is currently showing ('A' or 'B')
+let animating = false;            // locked during a fade
+let pending = null;               // queued update while fading
+let hideTimeout = null;
 
-// helper: swap visibility between two layers with a crossfade
-function crossfade(nextLayer, nextImage, prevLayer){
+function safeShow(el){ el.classList.add('show'); }
+function safeHide(el){ el.classList.remove('show'); }
+
+function crossfadeTo(imageUrl){
+  const incoming = (active === 'A') ? posB : posA;
+  const outgoing = (active === 'A') ? posA : posB;
+
   // keep previous visible during the fade
-  if(prevLayer) prevLayer.classList.add('show');
+  safeShow(outgoing);
 
-  // set next image and fade it in
-  nextLayer.style.backgroundImage = `url(${nextImage})`;
-  requestAnimationFrame(()=>{
-    nextLayer.classList.add('show');
-    const done = ()=> {
-      if(prevLayer) prevLayer.classList.remove('show'); // hide the old one after fade
-      nextLayer.removeEventListener('transitionend', done);
-    };
-    nextLayer.addEventListener('transitionend', done);
-  });
+  // set next image and start fade-in
+  incoming.style.backgroundImage = `url(${imageUrl})`;
+  requestAnimationFrame(()=> safeShow(incoming));
+
+  // after the fade duration, hide the old one and unlock
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(()=>{
+    safeHide(outgoing);
+    animating = false;
+
+    // run any queued update
+    if (pending){ const p = pending; pending = null; render(p.step, p.card); }
+  }, FADE_MS + 60);
+
+  // flip for next time
+  active = (active === 'A') ? 'B' : 'A';
 }
 
 function render(step, card){
-  if(step === currentStep) return;
+  if (step === currentStep) return;
+
+  // If we're mid-fade, queue the latest state and bail
+  if (animating){
+    pending = {step, card};
+    return;
+  }
+
   currentStep = step;
+  animating = true;
 
-  // always hide final unless we're on final frame
-  fin.classList.remove('show');
+  // hide final unless we're on final
+  safeHide(fin);
 
-  if(step <= 5){
-    // choose which pos layer is incoming/outgoing
-    const incoming = (active === 'A') ? posB : posA;
-    const outgoing = (active === 'A') ? posA : posB;
-
-    crossfade(incoming, ASSETS.pos[step], outgoing);
-
-    // flip active for next step
-    active = (active === 'A') ? 'B' : 'A';
+  if (step <= 5){
+    // crossfade between position layers
+    crossfadeTo(ASSETS.pos[step]);
 
   } else {
-    // final card crossfades over whichever pos layer is currently visible
+    // final card fades over whichever pos layer is currently visible
     const finalSrc = `assets/finals/${card}.png`;
     if(!loaded.has(finalSrc)){ preload(finalSrc).then(()=>loaded.add(finalSrc)); }
     fin.style.backgroundImage = `url(${finalSrc})`;
-    requestAnimationFrame(()=> fin.classList.add('show'));
+    requestAnimationFrame(()=> safeShow(fin));
+
+    clearTimeout(hideTimeout);
+    hideTimeout = setTimeout(()=>{
+      animating = false;
+      if (pending){ const p = pending; pending = null; render(p.step, p.card); }
+    }, FADE_MS + 60);
   }
 }
 
